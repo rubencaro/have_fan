@@ -21,6 +21,8 @@ repositories {
 }
 
 dependencies {
+    compile group: 'com.typesafe.akka', name: 'akka-stream_2.11', version: '2.5.19'
+
     // Use JUnit test framework
     testImplementation 'junit:junit:4.12'
 }

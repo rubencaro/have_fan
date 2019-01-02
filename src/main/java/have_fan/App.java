@@ -3,9 +3,31 @@
  */
 package have_fan;
 
+import akka.NotUsed;
+import akka.stream.FlowShape;
+import akka.stream.UniformFanInShape;
+import akka.stream.UniformFanOutShape;
+import akka.stream.javadsl.Balance;
+import akka.stream.javadsl.Flow;
+import akka.stream.javadsl.GraphDSL;
+import akka.stream.javadsl.Merge;
+
 public class App {
     public String getGreeting() {
         return "Hello world.";
+    }
+
+    public static <In, Out> Flow<In, Out, NotUsed> balancer(Flow<In, Out, NotUsed> worker, int workerCount) {
+        return Flow.fromGraph(GraphDSL.create(b -> {
+            final UniformFanOutShape<In, In> balance = b.add(Balance.<In>create(workerCount, true));
+            final UniformFanInShape<Out, Out> merge = b.add(Merge.<Out>create(workerCount));
+
+            for (int i = 0; i < workerCount; i++) {
+                b.from(balance.out(i)).via(b.add(worker.async())).toInlet(merge.in(i));
+            }
+
+            return FlowShape.of(balance.in(), merge.out());
+        }));
     }
 
     public static void main(String[] args) {
