@@ -3,18 +3,59 @@
  */
 package have_fan;
 
+import java.util.Arrays;
+import java.util.List;
+import java.util.concurrent.CompletionStage;
+import java.util.concurrent.ExecutionException;
+
+import akka.Done;
 import akka.NotUsed;
+import akka.actor.ActorSystem;
+import akka.stream.ActorMaterializer;
 import akka.stream.FlowShape;
+import akka.stream.Materializer;
 import akka.stream.UniformFanInShape;
 import akka.stream.UniformFanOutShape;
 import akka.stream.javadsl.Balance;
 import akka.stream.javadsl.Flow;
 import akka.stream.javadsl.GraphDSL;
 import akka.stream.javadsl.Merge;
+import akka.stream.javadsl.Sink;
+import akka.stream.javadsl.Source;
 
 public class App {
     public String getGreeting() {
+        // create the system and the materializer that will eventually get things done
+        final ActorSystem system = ActorSystem.create("HaveFan");
+        final Materializer materializer = ActorMaterializer.create(system);
+
+        // get our data
+        final List<String> targets = Arrays.asList("t1", "t2", "t3", "t4", "t5", "t6");
+
+        // prepare the final sink
+        final Sink<String, CompletionStage<Done>> sink = Sink.foreach(i -> System.out.println(i));
+
+        Source.from(targets) // create the source from the data
+                .via(balancer(worker(), 3)) // pipe it through some flows
+                .runWith(sink, materializer) // actually run the stream into the sink using the materializer
+                .thenRun(() -> system.terminate()); // kill everyone in the end
+
+        // then wait for the system to terminate
+        try {
+            system.getWhenTerminated().toCompletableFuture().get();
+        } catch (InterruptedException e) {
+            e.printStackTrace();
+        } catch (ExecutionException e) {
+            e.printStackTrace();
+        }
+
         return "Hello world.";
+    }
+
+    public static Flow<String, String, NotUsed> worker() {
+        // create a flow with the actual job
+        return Flow.of(String.class) // crate the flow of the input type
+                .map(i -> i + "-hey"); // here the hardest map ever
     }
 
     public static <In, Out> Flow<In, Out, NotUsed> balancer(Flow<In, Out, NotUsed> worker, int workerCount) {
