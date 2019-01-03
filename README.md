@@ -1,5 +1,5 @@
 # have_fan
-Fan out/Fan in fun
+Fan out / fan in fun
 
 This project follows [this](https://gist.github.com/rubencaro/274e6c88434fd706002d54dd6b31c8fc). So start by running `asdf install`. 
 
